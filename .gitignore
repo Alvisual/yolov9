@@ -170,6 +170,7 @@ tmp*.py
 *.c
 *.tfrec
 *.pt
+runs/
 
 # MacOS file
 .DS_Store
