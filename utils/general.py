@@ -971,7 +971,11 @@ def non_max_suppression(
             x = x[x[:, 4].argsort(descending=True)]  # sort by confidence
 
         # Batched NMS
-        c = x[:, 5:6] * (0 if agnostic else max_wh)  # classes
+        # Keep the same as `venture` repo, note that `agnostic` can be an integer.
+        if agnostic is False:
+            c = x[:, 5:6] * max_wh
+        else:
+            c = (x[:, 5:6] >= agnostic) * max_wh
         boxes, scores = x[:, :4] + c, x[:, 4]  # boxes (offset by class), scores
         i = torchvision.ops.nms(boxes, scores, iou_thres)  # NMS
         if i.shape[0] > max_det:  # limit detections

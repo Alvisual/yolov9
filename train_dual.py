@@ -146,7 +146,7 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
     if opt.cos_lr:
         lf = one_cycle(1, hyp['lrf'], epochs)  # cosine 1->hyp['lrf']
     elif opt.flat_cos_lr:
-        lf = one_flat_cycle(1, hyp['lrf'], epochs)  # flat cosine 1->hyp['lrf']        
+        lf = one_flat_cycle(1, hyp['lrf'], epochs)  # flat cosine 1->hyp['lrf']
     elif opt.fixed_lr:
         lf = lambda x: 1.0
     else:
@@ -355,10 +355,13 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
             if not noval or final_epoch:  # Calculate mAP
                 results, maps, _ = validate.run(data_dict,
                                                 batch_size=batch_size // WORLD_SIZE * 2,
+                                                conf_thres=hyp['conf_thresh'],
+                                                iou_thres=hyp['iou_thresh'],
                                                 imgsz=imgsz,
                                                 half=amp,
-                                                model=ema.ema,
+                                                model=ema.ema if hyp['val_ema'] else model,
                                                 single_cls=single_cls,
+                                                agnostic=hyp['agnostic_nms'],
                                                 dataloader=val_loader,
                                                 save_dir=save_dir,
                                                 plots=False,
@@ -403,14 +406,15 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
                 stop = broadcast_list[0]
         if stop:
             break  # must break all DDP ranks
-
+        torch.cuda.empty_cache()
         # end epoch ----------------------------------------------------------------------------------------------------
     # end training -----------------------------------------------------------------------------------------------------
     if RANK in {-1, 0}:
         LOGGER.info(f'\n{epoch - start_epoch + 1} epochs completed in {(time.time() - t0) / 3600:.3f} hours.')
         for f in last, best:
             if f.exists():
-                strip_optimizer(f)  # strip optimizers
+                # This will replace `model` with `ema` for `best.pt` and `last.pt` files.
+                # strip_optimizer(f)  # strip optimizers
                 if f is best:
                     LOGGER.info(f'\nValidating {f}...')
                     results, _, _ = validate.run(

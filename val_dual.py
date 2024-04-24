@@ -86,6 +86,7 @@ def run(
         device='',  # cuda device, i.e. 0 or 0,1,2,3 or cpu
         workers=8,  # max dataloader workers (per RANK in DDP mode)
         single_cls=False,  # treat as single-class dataset
+        agnostic=False,
         augment=False,  # augmented inference
         verbose=False,  # verbose output
         save_txt=False,  # save results to *.txt
@@ -207,7 +208,7 @@ def run(
                                         iou_thres,
                                         labels=lb,
                                         multi_label=True,
-                                        agnostic=single_cls,
+                                        agnostic=agnostic,
                                         max_det=max_det)
 
         # Metrics

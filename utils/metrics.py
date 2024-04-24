@@ -100,7 +100,9 @@ def compute_ap(recall, precision):
     """
 
     # Append sentinel values to beginning and end
-    mrec = np.concatenate(([0.0], recall, [1.0]))
+    # Keep the same as yolov7's default.
+    # https://github.com/WongKinYiu/yolov7/blob/a207844b1ce82d204ab36d87d496728d3d2348e7/utils/metrics.py#L95
+    mrec = np.concatenate(([0.0], recall, [recall[-1] + 0.01]))
     mpre = np.concatenate(([1.0], precision, [0.0]))
 
     # Compute the precision envelope
@@ -215,7 +217,7 @@ class ConfusionMatrix:
     def print(self):
         for i in range(self.nc + 1):
             print(' '.join(map(str, self.matrix[i])))
-            
+
 
 class WIoU_Scale:
     ''' monotonous: {
@@ -224,7 +226,7 @@ class WIoU_Scale:
             False: non-monotonic FM v3
         }
         momentum: The momentum of running mean'''
-    
+
     iou_mean = 1.
     monotonous = False
     _momentum = 1 - 0.5 ** (1 / 7000)
@@ -233,12 +235,12 @@ class WIoU_Scale:
     def __init__(self, iou):
         self.iou = iou
         self._update(self)
-    
+
     @classmethod
     def _update(cls, self):
         if cls._is_train: cls.iou_mean = (1 - cls._momentum) * cls.iou_mean + \
                                          cls._momentum * self.iou.detach().mean().item()
-    
+
     @classmethod
     def _scaled_loss(cls, self, gamma=1.9, delta=3):
         if isinstance(self.monotonous, bool):
