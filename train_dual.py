@@ -359,7 +359,7 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
                                                 iou_thres=hyp['iou_thresh'],
                                                 imgsz=imgsz,
                                                 half=amp,
-                                                model=model,
+                                                model=ema.ema if hyp['val_ema'] else model,
                                                 single_cls=single_cls,
                                                 agnostic=hyp['agnostic_nms'],
                                                 dataloader=val_loader,

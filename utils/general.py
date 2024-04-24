@@ -971,7 +971,7 @@ def non_max_suppression(
             x = x[x[:, 4].argsort(descending=True)]  # sort by confidence
 
         # Batched NMS
-        # Keep the same as `venture` repo.
+        # Keep the same as `venture` repo, note that `agnostic` can be an integer.
         if agnostic is False:
             c = x[:, 5:6] * max_wh
         else:
