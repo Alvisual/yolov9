@@ -71,7 +71,7 @@ class BboxLoss(nn.Module):
         pred_bboxes_pos = torch.masked_select(pred_bboxes, bbox_mask).view(-1, 4)
         target_bboxes_pos = torch.masked_select(target_bboxes, bbox_mask).view(-1, 4)
         bbox_weight = torch.masked_select(target_scores.sum(-1), fg_mask).unsqueeze(-1)
-        
+
         iou = bbox_iou(pred_bboxes_pos, target_bboxes_pos, xywh=False, CIoU=True)
         loss_iou = 1.0 - iou
 
@@ -110,7 +110,7 @@ class ComputeLoss:
         h = model.hyp  # hyperparameters
 
         # Define criteria
-        BCEcls = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([h["cls_pw"]], device=device), reduction='none')
+        BCEcls = nn.BCEWithLogitsLoss(weight=torch.tensor([h["cls_weight"]], device=device), reduction='none')
 
         # Class label smoothing https://arxiv.org/pdf/1902.04103.pdf eqn 3
         self.cp, self.cn = smooth_BCE(eps=h.get("label_smoothing", 0.0))  # positive, negative BCE targets
@@ -171,12 +171,12 @@ class ComputeLoss:
         loss = torch.zeros(3, device=self.device)  # box, cls, dfl
         feats = p[1][0] if isinstance(p, tuple) else p[0]
         feats2 = p[1][1] if isinstance(p, tuple) else p[1]
-        
+
         pred_distri, pred_scores = torch.cat([xi.view(feats[0].shape[0], self.no, -1) for xi in feats], 2).split(
             (self.reg_max * 4, self.nc), 1)
         pred_scores = pred_scores.permute(0, 2, 1).contiguous()
         pred_distri = pred_distri.permute(0, 2, 1).contiguous()
-        
+
         pred_distri2, pred_scores2 = torch.cat([xi.view(feats2[0].shape[0], self.no, -1) for xi in feats2], 2).split(
             (self.reg_max * 4, self.nc), 1)
         pred_scores2 = pred_scores2.permute(0, 2, 1).contiguous()
@@ -219,7 +219,7 @@ class ComputeLoss:
         # cls loss
         # loss[1] = self.varifocal_loss(pred_scores, target_scores, target_labels) / target_scores_sum  # VFL way
         loss[1] = self.BCEcls(pred_scores, target_scores.to(dtype)).sum() / target_scores_sum # BCE
-        loss[1] *= 0.25
+        loss[1] *= self.hyp['aux_branch_gain']
         loss[1] += self.BCEcls(pred_scores2, target_scores2.to(dtype)).sum() / target_scores_sum2 # BCE
 
         # bbox loss
@@ -231,8 +231,8 @@ class ComputeLoss:
                                                    target_scores,
                                                    target_scores_sum,
                                                    fg_mask)
-            loss[0] *= 0.25
-            loss[2] *= 0.25
+            loss[0] *= self.hyp['aux_branch_gain']
+            loss[2] *= self.hyp['aux_branch_gain']
         if fg_mask2.sum():
             loss0_, loss2_, iou2 = self.bbox_loss2(pred_distri2,
                                                    pred_bboxes2,
@@ -244,9 +244,9 @@ class ComputeLoss:
             loss[0] += loss0_
             loss[2] += loss2_
 
-        loss[0] *= 7.5  # box gain
-        loss[1] *= 0.5  # cls gain
-        loss[2] *= 1.5  # dfl gain
+        loss[0] *= self.hyp['box']  # box gain
+        loss[1] *= self.hyp['cls']  # cls gain
+        loss[2] *= self.hyp['dfl']  # dfl gain
 
         return loss.sum() * batch_size, loss.detach()  # loss(box, cls, dfl)
 
@@ -314,12 +314,12 @@ class ComputeLossLH:
         loss = torch.zeros(3, device=self.device)  # box, cls, dfl
         feats = p[1][0] if isinstance(p, tuple) else p[0]
         feats2 = p[1][1] if isinstance(p, tuple) else p[1]
-        
+
         pred_distri, pred_scores = torch.cat([xi.view(feats[0].shape[0], self.no, -1) for xi in feats], 2).split(
             (self.reg_max * 4, self.nc), 1)
         pred_scores = pred_scores.permute(0, 2, 1).contiguous()
         pred_distri = pred_distri.permute(0, 2, 1).contiguous()
-        
+
         pred_distri2, pred_scores2 = torch.cat([xi.view(feats2[0].shape[0], self.no, -1) for xi in feats2], 2).split(
             (self.reg_max * 4, self.nc), 1)
         pred_scores2 = pred_scores2.permute(0, 2, 1).contiguous()
